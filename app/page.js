@@ -1,101 +1,180 @@
-import Image from "next/image";
+'use client';
+import { useState, useEffect } from 'react';
+import CollegeList from './components/CollegeList';
+import Select from 'react-select';
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.js
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [formData, setFormData] = useState({
+    cutoff: '',
+    category: '',
+    course: [], // now an array for multi-select
+  });
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  const [colleges, setColleges] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [courseList, setCourseList] = useState([]);
+  const [collegeList, setCollegeList] = useState([]);
+
+  useEffect(() => {
+    // Fetch college names from the static JSON file
+    fetch('/colleges.json')
+      .then(res => res.json())
+      .then(data => setCollegeList(data.map(college => ({ value: college, label: college }))))
+      .catch(() => setCollegeList([]));
+  }, []);
+
+  useEffect(() => {
+    // Fetch course names from the static JSON file
+    fetch('/courses.json')
+      .then(res => res.json())
+      .then(data => setCourseList(data.map(course => ({ value: course, label: course }))))
+      .catch(() => setCourseList([]));
+  }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const response = await fetch('/api/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          cutoff: formData.cutoff,
+          category: formData.category,
+          course: formData.course.map(c => c.value), // send as array of brn
+          college: formData.college ? formData.college.map(c => c.value) : [], // send as array of college names
+        }),
+      });
+      const data = await response.json();
+      setColleges(data);
+    } catch (error) {
+      console.error('Error:', error);
+    }
+    setLoading(false);
+  };
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleCourseChange = (selectedOptions) => {
+    setFormData({
+      ...formData,
+      course: selectedOptions || []
+    });
+  };
+
+  const handleCollegeChange = (selectedOptions) => {
+    setFormData({
+      ...formData,
+      college: selectedOptions || []
+    });
+  };
+
+  return (
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 font-sans">
+      <div className="container mx-auto px-4 py-12">
+        <h1 className="text-4xl font-extrabold text-center mb-10 text-blue-700 drop-shadow-lg tracking-tight">
+          🎓 College Search
+        </h1>
+        <form onSubmit={handleSubmit} className="max-w-2xl mx-auto bg-white rounded-2xl shadow-2xl border border-blue-100 p-8 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Cutoff Marks
+              </label>
+              <input
+                type="number"
+                name="cutoff"
+                value={formData.cutoff}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter cutoff marks"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Category
+              </label>
+              <select
+                name="category"
+                value={formData.category}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              >
+                <option value="">Select Category</option>
+                <option value="OC">OC</option>
+                <option value="BC">BC</option>
+                <option value="BCM">BCM</option>
+                <option value="MBC">MBC</option>
+                <option value="SC">SC</option>
+                <option value="SCA">SCA</option>
+                <option value="ST">ST</option>
+              </select>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Courses
+              </label>
+              {courseList.length > 0 ? (
+                <Select
+                  isMulti
+                  isSearchable
+                  name="course"
+                  options={courseList}
+                  value={formData.course}
+                  onChange={handleCourseChange}
+                  className="basic-multi-select"
+                  classNamePrefix="select"
+                  placeholder="Type to search and select courses"
+                />
+              ) : (
+                <div className="text-gray-400">Loading courses...</div>
+              )}
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Colleges
+              </label>
+              {collegeList.length > 0 ? (
+                <Select
+                  isMulti
+                  isSearchable
+                  name="college"
+                  options={collegeList}
+                  value={formData.college}
+                  onChange={handleCollegeChange}
+                  className="basic-multi-select"
+                  classNamePrefix="Enter College Name"
+                />
+              ) : (
+                <div className="text-gray-400">Loading colleges...</div>
+              )}
+            </div>
+          </div>
+          <button
+            type="submit"
+            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-6 rounded-lg text-lg font-bold shadow-md hover:scale-105 transition-transform duration-200"
+            disabled={loading}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+            {loading ? 'Searching...' : '🔍 Search Colleges'}
+          </button>
+        </form>
+        {colleges.length > 0 && (
+          <div className="mt-12">
+            <CollegeList colleges={colleges} userCutoff={formData.cutoff} userCategory={formData.category} />
+          </div>
+        )}
+      </div>
+    </main>
   );
 }
