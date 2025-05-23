@@ -18,35 +18,33 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Missing data' }, { status: 400 });
     }
 
-    const allDocs = [];
-    let lastId = null;
-    const limit = 100;
+    let queries = [
+      Query.greaterThanEqual(category.toUpperCase(), parseFloat(cutoff)),
+      Query.limit(100)
+    ];
 
-    while (true) {
-      const queries = [
-        Query.greaterThanEqual(category.toUpperCase(), parseFloat(cutoff)),
-        Query.limit(limit),
-      ];
-      if (course && Array.isArray(course) && course.length > 0) {
-        queries.push(Query.contains('brn', course));
-      }
-      if (college && Array.isArray(college) && college.length > 0) {
-        queries.push(Query.equal('con', college));
-      }
-      if (lastId) {
-        queries.push(Query.cursorAfter(lastId));
-      }
-
-      const res = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, queries);
-
-      allDocs.push(...res.documents);
-      if (res.documents.length < limit) break;
-      lastId = res.documents[res.documents.length - 1].$id;
+    if (course && Array.isArray(course) && course.length > 0) {
+      queries.push(Query.contains('brn', course));
     }
 
-    return NextResponse.json(allDocs);
+    if (college && Array.isArray(college) && college.length > 0) {
+      queries.push(Query.equal('con', college));
+    }
+
+    try {
+      const res = await databases.listDocuments(
+        DATABASE_ID,
+        COLLECTION_ID,
+        queries
+      );
+      return NextResponse.json(res.documents);
+    } catch (dbError) {
+      console.error('Database Error:', dbError);
+      return NextResponse.json({ error: 'Database query failed' }, { status: 500 });
+    }
+
   } catch (err) {
     console.error('API Error:', err);
-    return NextResponse.json({ error: 'Something went wrong' }, { status: 500 });
+    return NextResponse.json({ error: 'Invalid request data' }, { status: 400 });
   }
 }
