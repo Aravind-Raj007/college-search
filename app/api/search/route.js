@@ -12,23 +12,33 @@ const COLLECTION_ID = "6830186b001b687fb654";
 
 export async function POST(req) {
   try {
-    const { cutoff, category, course, college } = await req.json();
+    const { cutoff, category, course, college, keyword } = await req.json();
 
-    if (!cutoff || !category) {
-      return NextResponse.json({ error: 'Missing data' }, { status: 400 });
+    // At least one search criteria should be provided
+    if (!cutoff && !course?.length && !college?.length && !keyword) {
+      return NextResponse.json({ error: 'Please provide at least one search criteria' }, { status: 400 });
     }
 
-    let queries = [
-      Query.greaterThanEqual(category.toUpperCase(), parseFloat(cutoff)),
-      Query.limit(100)
-    ];
+    let queries = [Query.limit(100)];
 
+    // Add cutoff filter if provided
+    if (cutoff && category) {
+      queries.push(Query.greaterThanEqual(category.toUpperCase(), parseFloat(cutoff)));
+    }
+
+    // Add keyword search if provided
+    if (keyword && keyword.trim()) {
+      queries.push(Query.contains('con', keyword.trim()));
+    }
+
+    // Add course filter if provided
     if (course && Array.isArray(course) && course.length > 0) {
       queries.push(Query.contains('brn', course));
     }
 
+    // Add college filter if provided
     if (college && Array.isArray(college) && college.length > 0) {
-      queries.push(Query.equal('con', college));
+      queries.push(Query.contains('con', college));
     }
 
     try {
